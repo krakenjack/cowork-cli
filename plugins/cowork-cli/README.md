@@ -10,6 +10,7 @@ The Cowork operating model — a folder you work in, memory that persists, a tas
 | Operating rules (how tasks run, deliverables, unattended behavior) | `context/operating-model.md`, injected by a `SessionStart` hook |
 | Memory | `memory/` in the workspace (shareable, `/remember`) + Claude Code auto memory (`/memory`) |
 | Task list widget | `TASKS.md` (`/tasks`) + Claude Code's in-session todo list |
+| Visual view beside the chat | `/board`: local dashboard (live tasks, drag-and-drop inbox, outputs, activity feed, message box) opened in the Claude app's browser pane, Chrome, or the default browser |
 | Artifacts / deliverables | Files in `outputs/` (`/deliver`); docx/xlsx/pptx/pdf via the `anthropics/skills` document skills |
 | Connectors | MCP servers (`/connect`, `claude mcp add`, `/mcp`) |
 | Browser | Claude in Chrome (`--chrome` at launch, `/chrome` in-session) |
@@ -52,7 +53,7 @@ macOS / Linux / WSL:
 
 First run creates `CLAUDE.md`, `TASKS.md`, `CONNECTORS.md`, `memory/`, `outputs/`, `inbox/`, `automation/` in the folder. Edit `CLAUDE.md` once to say who you are and what the folder is for.
 
-Flags: `-Name/--name` (session title on the phone), `-Chrome/--chrome`, `-NoRemote/--no-remote`, `-Installed/--installed` (plugin already installed via marketplace), `-AddDir/--add-dir`, `-Model/--model`, `-Continue/--continue`, `-PermissionMode/--permission-mode`.
+Flags: `-Board/--board` (start the visual board), `-Name/--name` (session title on the phone), `-Chrome/--chrome`, `-NoRemote/--no-remote`, `-Installed/--installed` (plugin already installed via marketplace), `-AddDir/--add-dir`, `-Model/--model`, `-Continue/--continue`, `-PermissionMode/--permission-mode`.
 
 To have every `claude` session start with Remote Control regardless of the launcher, set `"remoteControlAtStartup": true` in `~/.claude/settings.json` (or `/config` → Enable Remote Control for all sessions). Team/Enterprise orgs need an Owner to enable Remote Control at claude.ai/admin-settings/claude-code.
 
@@ -61,6 +62,7 @@ To have every `claude` session start with Remote Control regardless of the launc
 | Skill | Trigger | Does |
 |---|---|---|
 | `/cowork` | "catch me up", "what's on my plate" | One-screen brief from TASKS.md, memory, inbox, outputs |
+| `/board` | "open the board", "show the tracker" | Starts the local dashboard and opens it in the side panel / browser; `stop`, `status`, `autostart on`, `lan` |
 | `/tasks` | "add a task", "mark that done", "what's due" | Manages `TASKS.md` |
 | `/remember` | "remember that…", "forget…", "what do you know about…" | Workspace memory in `memory/` |
 | `/deliver` | "put that in a doc / xlsx / pptx", "write me a report" | Picks format, builds under `outputs/`, verifies, hands over |
@@ -71,7 +73,8 @@ Built-in Claude Code commands you'll use alongside: `/rc`, `/chrome`, `/schedule
 
 ## Hooks
 
-- `SessionStart` — prints the operating model and a workspace snapshot (open tasks, memory, inbox, outputs) into context.
+- `SessionStart` — prints the operating model and a workspace snapshot (open tasks, memory, inbox, outputs, board URL) into context; auto-starts the board when the folder opted in.
+- `UserPromptSubmit` / `PostToolUse` / `Stop` / `SessionEnd` — feed the board's activity panel and status dot; on each prompt, inject messages queued from the board and files newly dropped into `inbox/`.
 - `Stop` (prompt hook) — checks that a deliverable landed in `outputs/` with its path stated, and that the "check the work" step ran.
 
 ## Agent

@@ -41,6 +41,20 @@ else
   echo "outputs/: missing. Create it before writing the first deliverable."
 fi
 
-echo "Skills: /cowork (session brief), /tasks, /remember, /deliver, /automate, /connect. Built-in: /rc (Remote Control), /chrome, /schedule, /loop, /memory, /mcp."
+# Board: auto-start when the workspace opted in (.cowork/board-autostart), report the URL if running.
+if command -v node >/dev/null 2>&1; then
+  if [ -f "$WS/.cowork/board-autostart" ]; then
+    url=$(node "$ROOT/scripts/board/board.mjs" start --workspace "$WS" 2>/dev/null | tail -1)
+  else
+    url=$(node "$ROOT/scripts/board/board.mjs" url --workspace "$WS" 2>/dev/null | tail -1)
+  fi
+  if [ -n "$url" ]; then
+    echo "Board: running at $url — open it for the person with /board open if it isn't showing (built-in browser pane preferred). Files dropped there land in inbox/; messages typed there arrive with the next prompt."
+  else
+    echo "Board: not running. /board starts the visual task tracker + file drop zone."
+  fi
+fi
+
+echo "Skills: /cowork (session brief), /board (visual tracker), /tasks, /remember, /deliver, /automate, /connect. Built-in: /rc (Remote Control), /chrome, /schedule, /loop, /memory, /mcp."
 echo "</cowork-workspace>"
 exit 0

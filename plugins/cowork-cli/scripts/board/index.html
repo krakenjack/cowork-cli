@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%23c96a2b%27/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cowork Board</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --panel: #ffffff; --ink: #1c1b18; --muted: #6b6860; --line: #e4e1da;
+    --accent: #c96a2b; --accent-ink: #fff; --ok: #2e8b57; --warn: #b8322f; --wait: #8a6d1f;
+    --drop: #fbf1e8; --chip: #f0ede6; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #161513; --panel: #1f1e1b; --ink: #ece9e2; --muted: #9a968d; --line: #33312c;
+    --accent: #e08b4c; --ok: #5cbf83; --warn: #e0625e; --wait: #d4b04a; --drop: #2a231c; --chip: #2a2925;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #161513; --panel: #1f1e1b; --ink: #ece9e2; --muted: #9a968d; --line: #33312c;
+    --accent: #e08b4c; --ok: #5cbf83; --warn: #e0625e; --wait: #d4b04a; --drop: #2a231c; --chip: #2a2925;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .path { color: var(--muted); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 6px; }
+  .dot.live { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+  .dot.busy { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .spacer { flex: 1; }
+  .status { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  main { display: grid; grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 1fr) minmax(280px, 1fr); gap: 14px; padding: 14px 16px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 680px) { main { grid-template-columns: 1fr; padding: 12px; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  section h2 .count { background: var(--chip); border-radius: 999px; padding: 0 8px; font-size: 11px; color: var(--ink); }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .task { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-radius: 6px; }
+  .task:hover { background: var(--chip); }
+  .task input { margin-top: 3px; accent-color: var(--accent); }
+  .task .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .task.done .t { color: var(--muted); text-decoration: line-through; }
+  .task .meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .task .meta .due.over { color: var(--warn); font-weight: 600; }
+  .task .x { opacity: 0; color: var(--muted); border: 0; background: none; cursor: pointer; font-size: 14px; }
+  .task:hover .x { opacity: 1; }
+  .sub { font-size: 11px; color: var(--muted); margin: 10px 0 4px; }
+  .add { display: flex; gap: 6px; margin-top: 10px; }
+  input[type=text], textarea { flex: 1; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font: inherit; }
+  textarea { width: 100%; resize: vertical; min-height: 64px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  button.primary:disabled { opacity: .5; cursor: default; }
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 18px 12px; text-align: center; color: var(--muted); background: var(--drop); transition: border-color .15s, background .15s; cursor: pointer; }
+  .drop.over { border-color: var(--accent); color: var(--ink); }
+  .drop input { display: none; }
+  .files li { display: flex; gap: 8px; align-items: center; padding: 5px 4px; border-radius: 6px; }
+  .files li:hover { background: var(--chip); }
+  .files .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files a { color: var(--ink); text-decoration: none; }
+  .files a:hover { text-decoration: underline; }
+  .files .s, .files .d { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .feed li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .feed li:last-child { border-bottom: 0; }
+  .feed .ts { color: var(--muted); font-family: var(--mono); font-size: 11px; padding-top: 2px; }
+  .feed .k { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-right: 6px; }
+  .feed .k.tool { color: var(--accent); } .feed .k.user { color: var(--ok); } .feed .k.inbox { color: var(--wait); } .feed .k.stop { color: var(--muted); }
+  .feed .txt { overflow-wrap: anywhere; }
+  .pending { background: var(--chip); border-radius: 6px; padding: 6px 8px; margin: 4px 0; font-size: 12px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 4px; }
+  .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .mem { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" class="dot"></span>
+  <h1 id="name">Cowork Board</h1>
+  <span class="path" id="path"></span>
+  <span class="spacer"></span>
+  <span class="status" id="status">connecting…</span>
+</header>
+
+<main>
+  <div class="col">
+    <section>
+      <h2>Tasks <span class="count" id="taskCount">0</span></h2>
+      <div id="tasks"></div>
+      <form class="add" id="addForm">
+        <input type="text" id="addText" placeholder="Add a task… (due Friday, #project, @person)" autocomplete="off">
+        <button class="primary" type="submit">Add</button>
+      </form>
+    </section>
+    <section>
+      <h2>Message Claude</h2>
+      <textarea id="msg" placeholder="Queued for Claude's next turn — instructions, context, or a nudge."></textarea>
+      <div class="add" style="justify-content:flex-end">
+        <button class="primary" id="send">Queue message</button>
+      </div>
+      <div id="pending"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section>
+      <h2>Inbox <span class="count" id="inboxCount">0</span></h2>
+      <label class="drop" id="drop">
+        Drop files here — they land in <code>inbox/</code> and Claude sees them on its next turn.
+        <input type="file" id="fileInput" multiple>
+      </label>
+      <ul class="files" id="inbox"></ul>
+    </section>
+    <section>
+      <h2>Outputs <span class="count" id="outCount">0</span></h2>
+      <ul class="files" id="outputs"></ul>
+    </section>
+    <section>
+      <h2>Memory</h2>
+      <div class="mem" id="memory"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section>
+      <h2>Activity</h2>
+      <ul class="feed" id="feed"></ul>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const tokenParam = new URLSearchParams(location.search).get("token");
+  const api = (p) => p + (tokenParam ? (p.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(tokenParam) : "");
+  const fmtSize = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+  const fmtAgo = (ms) => { const s = Math.max(0, (Date.now() - ms) / 1000); return s < 60 ? "just now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
+  const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 1800); };
+  let lastState = null;
+
+  async function load() {
+    try {
+      const r = await fetch(api("/api/state"), { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      render(await r.json());
+    } catch (e) { $("status").textContent = "board server unreachable"; $("dot").className = "dot"; }
+  }
+
+  function render(s) {
+    lastState = s;
+    document.title = s.name + " · Cowork Board";
+    $("name").textContent = s.name;
+    $("path").textContent = s.workspace;
+    const busy = s.session && s.session.state === "working";
+    $("dot").className = "dot " + (busy ? "busy" : "live");
+    $("status").textContent = busy ? "Claude is working" + (s.session.tool ? " · " + s.session.tool : "") : (s.session && s.session.updated ? "idle · " + fmtAgo(Date.parse(s.session.updated)) : "idle");
+
+    // tasks
+    const open = s.tasks.filter((t) => !t.done);
+    $("taskCount").textContent = open.length;
+    const groups = {};
+    for (const t of s.tasks) (groups[t.section || "Active"] ||= []).push(t);
+    const order = ["Active", "Waiting", ...Object.keys(groups).filter((k) => !["Active", "Waiting", "Done"].includes(k)), "Done"];
+    let html = "";
+    for (const g of order) {
+      const items = groups[g]; if (!items || !items.length) continue;
+      const sorted = g === "Done" ? items.slice(-8).reverse() : items.slice().sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
+      html += `<div class="sub">${esc(g)}${g === "Done" && items.length > 8 ? ` (last 8 of ${items.length})` : ""}</div><ul>`;
+      for (const t of sorted) {
+        const text = esc(t.text.replace(/\s+—\s+due\s+\d{4}-\d{2}-\d{2}/i, "").replace(/\s+—\s+\d{4}-\d{2}-\d{2}\s*$/, ""));
+        html += `<li class="task ${t.done ? "done" : ""}" data-id="${t.id}">
+          <input type="checkbox" ${t.done ? "checked" : ""} title="${t.done ? "Reopen" : "Mark done"}">
+          <div class="t"><div>${text}</div><div class="meta">${t.due ? `<span class="due ${t.overdue ? "over" : ""}">${t.overdue ? "OVERDUE " : "due "}${t.due}</span>` : ""}${t.tags.map((x) => `<span>#${esc(x)}</span>`).join("")}${t.people.map((x) => `<span>@${esc(x)}</span>`).join("")}</div></div>
+          <button class="x" title="Delete">×</button></li>`;
+      }
+      html += "</ul>";
+    }
+    $("tasks").innerHTML = html || `<div class="empty">No tasks yet.</div>`;
+
+    // files
+    const fileList = (arr, el, countEl) => {
+      $(countEl).textContent = arr.length;
+      $(el).innerHTML = arr.length ? arr.map((f) => `<li><span class="n">${f.dir ? "📁 " : ""}<a href="${api("/api/file?path=" + encodeURIComponent(f.rel))}" target="_blank" rel="noopener">${esc(f.name)}</a></span><span class="s">${f.dir ? "" : fmtSize(f.size)}</span><span class="d">${fmtAgo(f.mtime)}</span></li>`).join("") : `<li class="empty">Empty.</li>`;
+    };
+    fileList(s.inbox, "inbox", "inboxCount");
+    fileList(s.outputs, "outputs", "outCount");
+    $("memory").textContent = s.memory ? `${s.memory.facts} stated facts · MEMORY.md ${s.memory.lines} lines` : "No memory/MEMORY.md yet — /remember creates it.";
+
+    // pending messages
+    $("pending").innerHTML = s.pending.length ? s.pending.map((p) => `<div class="pending">⏳ ${esc(p.text)}</div>`).join("") : "";
+
+    // activity
+    $("feed").innerHTML = s.activity.length ? s.activity.map((a) => {
+      const d = new Date(a.ts); const ts = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `<li><span class="ts">${ts}</span><span class="txt"><span class="k ${esc(a.kind)}">${esc(a.kind)}</span>${esc(a.text)}</span></li>`;
+    }).join("") : `<li class="empty">Nothing yet. Activity appears here as Claude works.</li>`;
+  }
+
+  // task actions
+  $("tasks").addEventListener("click", async (e) => {
+    const li = e.target.closest(".task"); if (!li) return;
+    const id = Number(li.dataset.id);
+    if (e.target.matches("input[type=checkbox]")) await post("/api/tasks", { action: e.target.checked ? "done" : "reopen", id });
+    else if (e.target.matches(".x")) { if (confirm("Delete this task?")) await post("/api/tasks", { action: "delete", id }); }
+  });
+  $("addForm").addEventListener("submit", async (e) => { e.preventDefault(); const t = $("addText").value.trim(); if (!t) return; $("addText").value = ""; await post("/api/tasks", { action: "add", text: t }); });
+  $("send").addEventListener("click", async () => { const t = $("msg").value.trim(); if (!t) return; $("msg").value = ""; await post("/api/message", { text: t }); toast("Queued for Claude's next turn"); });
+  async function post(p, body) {
+    const r = await fetch(api(p), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) toast("Error: " + ((await r.json().catch(() => ({}))).error || r.status));
+    load();
+  }
+
+  // drag and drop
+  const drop = $("drop");
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => upload(e.dataTransfer.files));
+  $("fileInput").addEventListener("change", (e) => { upload(e.target.files); e.target.value = ""; });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => { e.preventDefault(); if (!drop.contains(e.target)) upload(e.dataTransfer.files); });
+  async function upload(files) {
+    for (const f of files) {
+      drop.textContent = `Uploading ${f.name}…`;
+      const r = await fetch(api("/api/inbox/" + encodeURIComponent(f.name)), { method: "PUT", body: f });
+      toast(r.ok ? `Added inbox/${(await r.json()).name}` : `Failed: ${f.name}`);
+    }
+    drop.innerHTML = `Drop files here — they land in <code>inbox/</code> and Claude sees them on its next turn.<input type="file" id="fileInput" multiple>`;
+    $("fileInput").addEventListener("change", (e) => { upload(e.target.files); e.target.value = ""; });
+    load();
+  }
+
+  // live updates
+  function connect() {
+    const es = new EventSource(api("/api/events"));
+    es.addEventListener("changed", load);
+    es.addEventListener("hello", () => load());
+    es.onerror = () => { es.close(); $("status").textContent = "reconnecting…"; setTimeout(connect, 2000); };
+  }
+  connect();
+  setInterval(() => { if (lastState) render(lastState); }, 30000); // refresh relative times
+})();
+</script>
+</body>
+</html>

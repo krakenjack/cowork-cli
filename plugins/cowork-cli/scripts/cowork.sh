@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Launch a Cowork-style Claude Code session in a folder, with Remote Control enabled (macOS/Linux/WSL).
 #
-#   cowork.sh [workspace] [--name "Ops"] [--chrome] [--no-remote] [--installed] [--model m]
+#   cowork.sh [workspace] [--name "Ops"] [--chrome] [--board] [--no-remote] [--installed] [--model m]
 #             [--continue] [--permission-mode acceptEdits] [--add-dir path ...]
 set -euo pipefail
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATES="$PLUGIN_ROOT/templates"
 
-WS="$PWD"; NAME=""; CHROME=0; REMOTE=1; INSTALLED=0; MODEL=""; CONT=0; PMODE=""; ADDDIRS=()
+WS="$PWD"; NAME=""; CHROME=0; BOARD=0; REMOTE=1; INSTALLED=0; MODEL=""; CONT=0; PMODE=""; ADDDIRS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="$2"; shift 2;;
     --chrome) CHROME=1; shift;;
+    --board) BOARD=1; shift;;
     --no-remote) REMOTE=0; shift;;
     --installed) INSTALLED=1; shift;;
     --model) MODEL="$2"; shift 2;;
@@ -41,6 +42,17 @@ copy gitignore .gitignore
 if [ ${#created[@]} -gt 0 ]; then
   echo "Initialized workspace files: ${created[*]}"
   echo "Edit CLAUDE.md to fill in who you are and what this folder is for."
+fi
+
+if [ $BOARD -eq 1 ]; then
+  if command -v node >/dev/null 2>&1; then
+    mkdir -p "$WS/.cowork" && touch "$WS/.cowork/board-autostart"
+    url=$(node "$PLUGIN_ROOT/scripts/board/board.mjs" start --workspace "$WS" | tail -1)
+    if [ -n "$url" ]; then
+      echo "Board: $url"
+      case "$(uname -s)" in Darwin) open "$url";; Linux) command -v xdg-open >/dev/null && xdg-open "$url" >/dev/null 2>&1 || true;; esac
+    fi
+  else echo "Board needs Node.js 18+ on PATH; skipping."; fi
 fi
 
 args=()

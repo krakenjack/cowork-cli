@@ -10,12 +10,17 @@ You (terminal or phone)
         ▼
 claude --remote-control "Ops"  ──►  D:\ops\                (your folder, your files)
    + cowork-cli plugin               ├── CLAUDE.md          who you are, what this folder is for
-     ├── operating model (hook)      ├── TASKS.md           task list          (/tasks)
-     ├── /cowork /tasks /remember    ├── memory/            persistent memory  (/remember)
-     ├── /deliver /automate /connect ├── inbox/             files you hand over
-     └── deliverable-checker agent   ├── outputs/           everything Claude produces (/deliver)
-                                     ├── automation/        prompts for scheduled runs (/automate)
-                                     └── .mcp.json          connectors (/connect)
+     ├── operating model (hook)      ├── TASKS.md           task list          (/tasks, board)
+     ├── /cowork /board /tasks       ├── memory/            persistent memory  (/remember)
+     ├── /remember /deliver          ├── inbox/             files you hand over (drop zone on the board)
+     ├── /automate /connect          ├── outputs/           everything Claude produces (/deliver)
+     └── deliverable-checker agent   ├── automation/        prompts for scheduled runs (/automate)
+                                     ├── .cowork/           board state (activity feed, queued messages)
+        ┌──────────────────┐         └── .mcp.json          connectors (/connect)
+        │  Cowork board    │◄── localhost page opened in the Claude app's browser pane
+        │  tasks · inbox   │    (or Chrome / your default browser)
+        │  drop zone · log │
+        └──────────────────┘
 ```
 
 ---
@@ -26,6 +31,7 @@ claude --remote-control "Ops"  ──►  D:\ops\                (your folder, y
 - [Quickstart](#quickstart)
 - [Cowork → cowork-cli mapping](#cowork--cowork-cli-mapping)
 - [Skills reference](#skills-reference)
+- [The board](#the-board)
 - [The operating model](#the-operating-model)
 - [Remote Control](#remote-control)
 - [Scheduled and recurring work](#scheduled-and-recurring-work)
@@ -116,6 +122,7 @@ Pick the session up on your phone: open the Claude app, go to **Code**, and choo
 | How Claude approaches tasks | Operating model | Injected by the `SessionStart` hook |
 | Memory | `memory/` (shared) + Claude Code auto memory (per machine) | `/remember`, `/memory` |
 | Task list widget | `TASKS.md` + in-session todo list | `/tasks` |
+| Side-panel view of the work | The board: live tasks, inbox drop zone, outputs, activity feed | `/board` |
 | Artifacts and files | `outputs/YYYY-MM-DD-slug.ext` | `/deliver` |
 | docx / xlsx / pptx / pdf | Anthropic document skills | `/plugin marketplace add anthropics/skills` |
 | Connectors | MCP servers in the workspace `.mcp.json` | `/connect`, `/mcp` |
@@ -145,6 +152,17 @@ A one-screen status of the workspace, sized for a phone.
 ```
 
 `/cowork <project>` narrows the brief to one project or person.
+
+### `/board`: visual tracker
+
+Starts a local dashboard for the workspace and opens it beside the conversation. See [The board](#the-board).
+
+```text
+> /board
+> /board autostart on      # start it with every session in this folder
+> /board lan               # tokened URL for a tablet on the same network
+> /board stop
+```
 
 ### `/tasks`: task list
 
@@ -225,6 +243,35 @@ After adding a server that uses OAuth, run `/mcp` to sign in.
 ### `deliverable-checker` agent
 
 A subagent that hasn't seen the work being produced. It opens the finished file, re-checks figures and citations against the sources, and returns `PASS`, `PASS WITH FIXES` or `FAIL` with cell, page or slide references. To run it by hand: "have the deliverable-checker review outputs/2026-09-29-budget.xlsx".
+
+---
+
+## The board
+
+`/board` runs a small local web server (Node, no dependencies) from the workspace and opens the page in the first browser available:
+
+1. **The Claude app's built-in browser pane**, when Claude Code is running inside the Claude desktop app. The board appears in the side panel next to the conversation. If the pane is hidden, `Ctrl+Shift+B` (`Cmd+Shift+B` on Mac) brings it back.
+2. **Claude in Chrome**, when the session was started with `--chrome`.
+3. **Your default browser** otherwise.
+
+| Panel | What it shows | What you can do |
+|---|---|---|
+| Tasks | `TASKS.md` grouped by Active / Waiting / Done, due dates, overdue in red | Add, check off, reopen, delete: it edits `TASKS.md` directly |
+| Inbox | `inbox/` | **Drag and drop files** anywhere on the page. They land in `inbox/` and Claude is told about them at its next turn |
+| Outputs | `outputs/`, newest first | Open or download any deliverable |
+| Activity | Live feed of Claude's tool calls, your prompts, file drops, turn boundaries | Watch what it's doing |
+| Message Claude | A text box | Queue a note; it's injected into Claude's next turn as an instruction |
+| Header | Working / idle indicator and workspace path | |
+
+Everything is live: the server watches the files and pushes changes over server-sent events, and the plugin's hooks append to the activity feed and status after every tool call and turn.
+
+Details:
+
+- State lives in `.cowork/` inside the workspace (git-ignored). Delete the folder to reset.
+- Default bind is `127.0.0.1:4820`. `/board lan` binds all interfaces with a random token in the URL, for a second screen on the same network. The phone's Remote Control view shows the conversation, not the board.
+- `-Board` / `--board` on the launcher starts it before Claude and turns on autostart for the folder.
+- Uploads are capped at 200 MB per file; names are sanitized and never overwrite an existing inbox file.
+- Needs Node 18+ on `PATH`. Without it the rest of the plugin works and `/board` says so.
 
 ---
 
@@ -330,6 +377,7 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 | `-Workspace <dir>` | first positional arg | Folder to work in (default: current) |
 | `-Name "<title>"` | `--name "<title>"` | Session name shown on the phone |
 | `-Chrome` | `--chrome` | Enable Claude in Chrome |
+| `-Board` | `--board` | Start the board, open it in the default browser, enable autostart for this folder |
 | `-NoRemote` | `--no-remote` | Plain local session |
 | `-Installed` | `--installed` | Plugin installed from the marketplace; skip `--plugin-dir` |
 | `-AddDir a,b` | `--add-dir a b` | Extra folders Claude may access |
@@ -350,6 +398,7 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 | Claude Code | Current release, signed in with claude.ai (Pro / Max / Team / Enterprise) |
 | Windows | Native Claude Code plus Git for Windows (the session hook runs under Git Bash); PowerShell 5.1+ for the launcher and scheduler |
 | macOS / Linux / WSL | bash; cron for scheduled runs |
+| Board (optional) | Node.js 18+ on PATH |
 | Remote Control | Team/Enterprise: enabled by an org Owner |
 | Browser (optional) | Chrome or Chromium + Claude in Chrome extension |
 | Office files (optional) | `anthropics/skills` document skills (and Python for them) |
@@ -367,6 +416,8 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 | `.ps1 cannot be loaded because running scripts is disabled` | Use `cowork.cmd`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 | Scheduled job ran but nothing happened | Check `outputs/automation/<name>/*.log`. The usual causes are an expired login or a missing tool permission (`-AllowedTools`). |
 | `/deliver` produced `.md` instead of `.docx` | The document skills aren't installed: `/plugin marketplace add anthropics/skills` |
+| Board shows "server unreachable" | The server stopped (laptop slept, port taken). Run `/board` again; check `.cowork/board.log`. |
+| Board opened in Chrome instead of the side panel | The side panel only exists when Claude Code runs inside the Claude desktop app. From a plain terminal the board opens in a browser tab. |
 | Connector added but its tools are missing | Run `/mcp` and finish the OAuth sign-in, then restart the session |
 
 ---
@@ -393,10 +444,12 @@ cowork-cli/
 └── plugins/cowork-cli/
     ├── .claude-plugin/plugin.json         plugin manifest
     ├── context/operating-model.md         how Claude works in a workspace
-    ├── hooks/hooks.json                   SessionStart (inject model + snapshot), Stop (deliverable check)
-    ├── hooks/scripts/session-start.sh
+    ├── hooks/hooks.json                   SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd
+    ├── hooks/scripts/session-start.sh     operating model + workspace snapshot
+    ├── hooks/scripts/activity.mjs         board feed/status; injects dropped files + board messages
     ├── skills/
     │   ├── cowork/SKILL.md                /cowork     session brief
+    │   ├── board/SKILL.md                 /board      visual tracker + drop zone
     │   ├── tasks/SKILL.md                 /tasks      TASKS.md
     │   ├── remember/SKILL.md              /remember   workspace memory
     │   ├── deliver/SKILL.md               /deliver    deliverables
@@ -405,6 +458,7 @@ cowork-cli/
     ├── agents/deliverable-checker.md      fresh-eyes verification
     ├── scripts/
     │   ├── cowork.ps1 · cowork.cmd · cowork.sh          launchers (Remote Control on)
+    │   ├── board/server.mjs · board.mjs · index.html    the board (local web dashboard)
     │   └── schedule-windows.ps1 · schedule-cron.sh      OS-level scheduled runs
     ├── templates/                         seeded into new workspaces
     ├── CONNECTORS.md
