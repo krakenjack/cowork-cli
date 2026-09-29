@@ -166,7 +166,7 @@ watch(TASKS, "tasks"); watch(path.join(WS, "inbox"), "inbox"); watch(path.join(W
 setInterval(() => watch(TASKS, "tasks"), 30000).unref();
 
 // ---------- server ----------
-const PAGE = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const PAGE_FILE = path.join(__dirname, "index.html"); // read per request so plugin updates apply without a restart
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -177,7 +177,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/") {
       const hdr = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" };
       if (TOKEN && url.searchParams.get("token") === TOKEN) hdr["set-cookie"] = `cowork_token=${TOKEN}; Path=/; SameSite=Strict`;
-      res.writeHead(200, hdr); return res.end(PAGE);
+      res.writeHead(200, hdr); return res.end(fs.readFileSync(PAGE_FILE, "utf8"));
     }
     if (url.pathname === "/favicon.ico") { res.writeHead(204); return res.end(); }
     if (url.pathname === "/api/health") return json(res, 200, { ok: true, workspace: WS, pid: process.pid });

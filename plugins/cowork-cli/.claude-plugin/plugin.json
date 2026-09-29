@@ -1,6 +1,6 @@
 {
   "name": "cowork-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Cowork-style knowledge work in a terminal Claude Code session: folder workspace, persistent memory, TASKS.md task list, file deliverables, a live visual board (tasks, drag-and-drop inbox, activity) in the Claude app's browser pane, MCP connectors, scheduled runs, Chrome browsing, and Remote Control from your phone.",
   "author": {
     "name": "cowork-cli contributors"

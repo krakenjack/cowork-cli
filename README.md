@@ -267,6 +267,7 @@ Everything is live: the server watches the files and pushes changes over server-
 
 Details:
 
+- **Day / night**: the switch in the header offers Auto (follows the OS), Day and Night; the choice is remembered per browser. The look follows Anthropic's: ivory ground, warm charcoal at night, serif headings, the Claude orange reserved for actions and the working indicator.
 - State lives in `.cowork/` inside the workspace (git-ignored). Delete the folder to reset.
 - Default bind is `127.0.0.1:4820`. `/board lan` binds all interfaces with a random token in the URL, for a second screen on the same network. The phone's Remote Control view shows the conversation, not the board.
 - `-Board` / `--board` on the launcher starts it before Claude and turns on autostart for the folder.

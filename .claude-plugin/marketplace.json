@@ -4,7 +4,7 @@
     "name": "cowork-cli contributors"
   },
   "description": "Cowork-style knowledge work for terminal Claude Code sessions, with Remote Control.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "metadata": {
     "pluginRoot": "./plugins"
   },
@@ -13,7 +13,7 @@
       "name": "cowork-cli",
       "source": "cowork-cli",
       "description": "Folder workspace, memory, task list, visual board with drag-and-drop inbox, deliverables, connectors, scheduled runs, Chrome, and Remote Control — the Cowork operating model inside Claude Code.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "productivity",
       "tags": ["cowork", "remote-control", "workspace"]
     }
