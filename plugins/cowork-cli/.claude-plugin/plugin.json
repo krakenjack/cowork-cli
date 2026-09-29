@@ -1,0 +1,10 @@
+{
+  "name": "cowork-cli",
+  "version": "0.1.0",
+  "description": "Cowork-style knowledge work in a terminal Claude Code session: folder workspace, persistent memory, TASKS.md task list, file deliverables, MCP connectors, scheduled runs, Chrome browsing, and Remote Control from your phone.",
+  "author": {
+    "name": "cowork-cli contributors"
+  },
+  "license": "MIT",
+  "keywords": ["cowork", "knowledge-work", "remote-control", "workspace", "memory", "tasks", "automation"]
+}

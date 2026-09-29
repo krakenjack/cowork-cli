@@ -1,0 +1,5 @@
+# Workspace .gitignore (copied as .gitignore by the launcher)
+outputs/automation/
+*.log
+.DS_Store
+Thumbs.db

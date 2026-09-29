@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "If this turn produced a file the person will keep (a deliverable), confirm it was written under outputs/ and its path was stated in the reply. If a task list was in use, confirm the last item (checking the work) was actually done. If either is missing, continue and fix it; otherwise stop.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
