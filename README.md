@@ -2,7 +2,26 @@
 
 **The Cowork way of working, in a terminal Claude Code session you can pick up from your phone.**
 
-> **New here?** Step-by-step setup guides, no technical background needed: **[Windows](docs/getting-started-windows.md)** · **[Mac](docs/getting-started-macos.md)**
+## Deploy for non-technical users
+
+To help you deploy this, use your strongest tool: your AI agent. It can build this workflow and skill with you and help you step by step. Paste the prompt below into Claude (or ChatGPT, or any code-based agent) and follow the steps it gives you to deploy this workflow.
+
+```text
+I want to set up "cowork-cli" (Cowork for Claude Code) on my computer, and I'm not technical.
+
+Please read the deployment instructions written for AI assistants in this repository:
+https://raw.githubusercontent.com/krakenjack/cowork-cli/main/DEPLOY-WITH-AN-AGENT.md
+(repository: https://github.com/krakenjack/cowork-cli)
+
+Follow those rules exactly and walk me through the setup one step at a time, waiting for me
+to say "done" before the next step. Start by asking what kind of computer I have.
+```
+
+The assistant reads [`DEPLOY-WITH-AN-AGENT.md`](DEPLOY-WITH-AN-AGENT.md): the deployment rules written for it, including every command you'll paste, what you should see after each step, and fixes for common problems. You only ever paste lines it gives you.
+
+Prefer to follow along yourself? Step-by-step guides: **[Windows](docs/getting-started-windows.md)** · **[Mac](docs/getting-started-macos.md)**
+
+---
 
 `cowork-cli` is a Claude Code plugin (shipped as a one-plugin marketplace) for knowledge work: research, drafting, analysis, planning and file deliverables. It makes a plain folder behave like a Cowork workspace. The folder gets standing instructions, persistent memory, a shared task list, an `outputs/` folder for deliverables, connectors, scheduled runs and browser access. The launcher starts the session with **Remote Control** on, so the same live session appears in the Claude mobile app and on claude.ai/code. Everything runs on your own machine.
 
@@ -29,6 +48,7 @@ claude --remote-control "Ops"  ──►  D:\ops\                (your folder, y
 
 ## Contents
 
+- [Deploy for non-technical users](#deploy-for-non-technical-users)
 - [Why](#why)
 - [Quickstart](#quickstart)
 - [Cowork → cowork-cli mapping](#cowork--cowork-cli-mapping)
@@ -64,7 +84,7 @@ Cowork is great for handing off work and getting a finished file back. Running t
 
 ## Quickstart
 
-Prefer a click-by-click walkthrough? See the guides for **[Windows](docs/getting-started-windows.md)** and **[Mac](docs/getting-started-macos.md)**.
+Not technical? Let an AI assistant walk you through it: see [Deploy for non-technical users](#deploy-for-non-technical-users). Or follow the click-by-click guides for **[Windows](docs/getting-started-windows.md)** and **[Mac](docs/getting-started-macos.md)**.
 
 ### Once per computer: install
 
@@ -445,6 +465,7 @@ The launcher uses the installed plugin when there is one (so skills aren't loade
 
 ```
 cowork-cli/
+├── DEPLOY-WITH-AN-AGENT.md                 setup rules for an AI assistant guiding a non-technical person
 ├── docs/getting-started-windows.md · getting-started-macos.md   plain-language setup guides
 ├── install.sh · install.ps1               one-line installers: plugin + `cowork` command (+ Explorer menu)
 ├── .claude-plugin/marketplace.json        marketplace manifest (plugin root: ./plugins)
