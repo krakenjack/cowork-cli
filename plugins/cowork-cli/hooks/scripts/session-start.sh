@@ -41,17 +41,17 @@ else
   echo "outputs/: missing. Create it before writing the first deliverable."
 fi
 
-# Board: auto-start when the workspace opted in (.cowork/board-autostart), report the URL if running.
+# Board. The web board (a rendered HTML page, published as an Artifact) needs no server; report its link when it
+# has one. The optional localhost server only starts when the workspace opted in (.cowork/board-autostart).
 if command -v node >/dev/null 2>&1; then
+  web=$(node "$ROOT/scripts/board/sync.mjs" status --workspace "$WS" 2>/dev/null | tail -1)
+  case "$web" in
+    *claude.ai*) echo "Board: $web. It opens beside this conversation in claude.ai; waiting changes arrive as messages from the board (apply them with /board sync). The Stop hook asks for a republish when the workspace changes." ;;
+    *) echo "Board: not published yet. /board renders the workspace as a page and opens it beside the conversation (tasks, drop zone for inbox/, outputs)." ;;
+  esac
   if [ -f "$WS/.cowork/board-autostart" ]; then
     url=$(node "$ROOT/scripts/board/board.mjs" start --workspace "$WS" 2>/dev/null | tail -1)
-  else
-    url=$(node "$ROOT/scripts/board/board.mjs" url --workspace "$WS" 2>/dev/null | tail -1)
-  fi
-  if [ -n "$url" ]; then
-    echo "Board: running at $url — open it for the person with /board open if it isn't showing (built-in browser pane preferred). Files dropped there land in inbox/; messages typed there arrive with the next prompt."
-  else
-    echo "Board: not running. /board starts the visual task tracker + file drop zone."
+    [ -n "$url" ] && echo "Local board server (optional, desktop app): $url"
   fi
 fi
 

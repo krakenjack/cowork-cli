@@ -1,0 +1,453 @@
+<title>{{NAME}} · Cowork Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  /* Layout: a sticky hand-off bar over three quiet columns (tasks | files | activity) on an ivory ground; the only
+     strong color is the Claude orange, kept for actions and the working indicator. Serif for names and section
+     titles, sans for everything operated. Rendered by scripts/board/render.mjs; never edit a rendered copy. */
+  :root {
+    --bg: #F0EEE6; --panel: #FAF9F5; --ink: #141413; --ink-2: #3D3D3A; --muted: #6E6C64;
+    --line: #E2DFD5; --line-strong: #CFCBBF; --accent: #D97757; --accent-hover: #C4643F; --accent-ink: #FFFFFF;
+    --accent-soft: #F5E4DB; --chip: #ECE9E0; --drop: #F7F1EA; --ok: #3B7A57; --warn: #BF3B2E; --wait: #9A6F1F;
+    --shadow: 0 1px 2px rgba(20, 20, 19, .05), 0 1px 0 rgba(20, 20, 19, .03);
+    --font-display: "Lora", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-body: "DM Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --r: 12px;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #1B1A18; --panel: #242320; --ink: #EDEBE3; --ink-2: #CFCCC2; --muted: #A19E94; --line: #363430; --line-strong: #4A4740;
+    --accent: #E0895F; --accent-hover: #EC9C74; --accent-ink: #1B1A18; --accent-soft: #3A2A21; --chip: #2E2C27; --drop: #2A2521;
+    --ok: #6FBF90; --warn: #E8705F; --wait: #D9B255; --shadow: 0 1px 2px rgba(0,0,0,.35); color-scheme: dark;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #1B1A18; --panel: #242320; --ink: #EDEBE3; --ink-2: #CFCCC2; --muted: #A19E94; --line: #363430; --line-strong: #4A4740;
+    --accent: #E0895F; --accent-hover: #EC9C74; --accent-ink: #1B1A18; --accent-soft: #3A2A21; --chip: #2E2C27; --drop: #2A2521;
+    --ok: #6FBF90; --warn: #E8705F; --wait: #D9B255; --shadow: 0 1px 2px rgba(0,0,0,.35); color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  body:not(.live) .live-only, body.live .ro-only, .handoff[hidden] { display: none !important; }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; }
+  header h1 { font: 500 20px/1.2 var(--font-display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  header .path { color: var(--muted); font: 12px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 120px; }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); flex: none; }
+  .dot.live { background: var(--ok); }
+  .dot.busy { background: var(--accent); animation: pulse 1.3s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .dot.busy { animation: none; } }
+
+  .handoff { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 14px 20px 0; padding: 10px 14px; border-radius: var(--r); background: var(--accent-soft); color: var(--ink); }
+  .handoff p { margin: 0; flex: 1 1 220px; min-width: 0; }
+  .handoff strong { font-variant-numeric: tabular-nums; }
+  .note { margin: 14px 20px 0; padding: 9px 14px; border-radius: var(--r); border: 1px dashed var(--line-strong); color: var(--muted); font-size: 13px; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px 28px; }
+  @media (max-width: 1040px) { main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  @media (max-width: 700px) { main { grid-template-columns: minmax(0, 1fr); padding: 14px 16px 24px; } header { padding: 10px 16px; } .handoff, .note { margin-inline: 16px; } }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px 16px; min-width: 0; box-shadow: var(--shadow); }
+  section h2 { font: 600 15px/1.3 var(--font-display); margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; }
+  .count { font: 500 11px var(--font-body); background: var(--chip); border-radius: 999px; padding: 2px 8px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  section h2 .hint { font: 12px var(--font-body); color: var(--muted); margin-left: auto; font-weight: 400; }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  .sub { font: 500 11px var(--font-body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 12px 0 4px; }
+  .sub:first-child { margin-top: 0; }
+  .task { display: flex; gap: 10px; align-items: flex-start; padding: 7px 6px; border-radius: 8px; }
+  .task:hover { background: var(--chip); }
+  .task input[type=checkbox] { margin: 4px 0 0; width: 15px; height: 15px; accent-color: var(--accent); flex: none; }
+  body.live .task input[type=checkbox] { cursor: pointer; }
+  .task .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .task.done .t label { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+  .task .meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+  .task .meta .due.over { color: var(--warn); font-weight: 600; }
+  .task .meta .tag::before { content: "#"; opacity: .6; } .task .meta .who::before { content: "@"; opacity: .6; }
+  .task .x { color: var(--muted); border: 0; background: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: 4px; opacity: .35; }
+  .task:hover .x, .task .x:focus-visible { opacity: 1; }
+  .task .x:hover, .task .x.confirm { color: var(--warn); opacity: 1; }
+  .task.queued { background: var(--drop); }
+  .task.queued.removing .t label { text-decoration: line-through; color: var(--muted); }
+  .chip-wait { display: inline-block; font-size: 10.5px; color: var(--wait); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; margin-left: 6px; white-space: nowrap; vertical-align: 1px; }
+
+  .row { display: flex; gap: 8px; margin-top: 12px; }
+  input[type=text], textarea { flex: 1; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  input[type=text]:focus, textarea:focus { border-color: var(--line-strong); outline: 2px solid var(--accent-soft); outline-offset: 0; }
+  textarea { width: 100%; resize: vertical; min-height: 72px; line-height: 1.45; }
+  .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--accent-hover); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: none; color: var(--ink-2); border: 1px solid var(--line-strong); padding: 3px 10px; font-size: 12px; }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--ink); }
+
+  .drop { display: block; border: 1.5px dashed var(--line-strong); border-radius: 10px; padding: 18px 14px; text-align: center; color: var(--muted); background: var(--drop); cursor: pointer; margin-bottom: 8px; transition: border-color .15s, background .15s; }
+  .drop strong { color: var(--ink-2); font-weight: 500; }
+  .drop code { font: 12px var(--font-mono); }
+  body.dragging .drop, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .files li { display: flex; gap: 10px; align-items: center; padding: 6px; border-radius: 8px; }
+  .files li:hover { background: var(--chip); }
+  .files .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files .s, .files .d { color: var(--muted); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .files li.queued { background: var(--drop); }
+  .files a, .open-file { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+  .files a:hover, .open-file:hover { text-decoration-color: var(--accent); }
+  .open-file { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  dialog#viewer { width: min(900px, calc(100% - 32px)); max-height: calc(100% - 48px); border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink); padding: 0; }
+  dialog#viewer::backdrop { background: rgba(20, 20, 19, .45); }
+  .viewer-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .viewer-head h2 { font: 500 14px var(--font-mono); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #viewerBody { padding: 16px 20px 22px; }
+  #viewerBody img { display: block; max-width: 100%; margin: 0 auto; }
+  #viewerBody pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.55 var(--font-mono); margin: 0; }
+  .prose { max-width: 70ch; line-height: 1.6; }
+  .prose h1, .prose h2, .prose h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.25; text-wrap: balance; }
+  .prose code { font: 12.5px var(--font-mono); background: var(--chip); padding: 1px 4px; border-radius: 4px; }
+  .prose pre { background: var(--chip); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+  .prose a { color: var(--accent); }
+  .tablewrap { overflow-x: auto; }
+  .tablewrap table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .tablewrap th, .tablewrap td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
+  .tablewrap th { background: var(--chip); font-weight: 600; }
+
+  .feed li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .feed li:last-child { border-bottom: 0; }
+  .feed .ts { color: var(--muted); font: 11px/1.6 var(--font-mono); font-variant-numeric: tabular-nums; }
+  .feed .k { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 7px; }
+  .feed .k-tool { color: var(--accent); } .feed .k-user { color: var(--ok); } .feed .k-inbox { color: var(--wait); }
+  .feed .txt { overflow-wrap: anywhere; color: var(--ink-2); }
+  .queuedmsg { background: var(--accent-soft); border-radius: 8px; padding: 7px 10px; margin-top: 8px; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px; font-style: italic; font-family: var(--font-display); margin: 0; }
+  .mem { font-size: 13px; color: var(--muted); }
+  .toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%) translateY(6px); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+
+<header>
+  <span id="dot" class="dot {{STATUS_CLASS}}"></span>
+  <h1>{{NAME}}</h1>
+  <span class="path">{{WORKSPACE}}</span>
+  <span class="state"><span id="status">{{STATUS_TEXT}}</span> · <time id="gen" data-iso="{{GENERATED}}">Updated {{GENERATED_TEXT}}</time></span>
+</header>
+
+<div class="handoff live-only" id="handoff" hidden>
+  <p id="handoffText"><strong id="pendingCount">0</strong> changes on this board haven't reached your workspace yet.</p>
+  <button class="btn" type="button" id="sendChanges">Send to Claude</button>
+</div>
+<p class="note ro-only" id="roNote">Snapshot of the workspace. Ask Claude in the chat to change tasks or to open the live board, where you can tick tasks and drop files.</p>
+
+<main>
+  <div class="col">
+    <section aria-labelledby="h-tasks">
+      <h2 id="h-tasks">Tasks <span class="count" id="taskCount">{{TASK_COUNT}}</span><span class="hint">TASKS.md</span></h2>
+      <div id="tasks">{{TASKS}}</div>
+      <form class="row live-only" id="addForm">
+        <input type="text" id="addText" placeholder="Add a task… due 2026-10-09, #project, @person" autocomplete="off" aria-label="New task">
+        <button class="btn" type="submit">Add</button>
+      </form>
+    </section>
+    <section class="live-only" aria-labelledby="h-msg">
+      <h2 id="h-msg">Message Claude</h2>
+      <textarea id="msg" placeholder="An instruction or some context. It goes to the session beside this board, with any changes still waiting." aria-label="Message for Claude"></textarea>
+      <div class="row" style="justify-content:flex-end; margin-top:8px"><button class="btn" id="sendMsg" type="button">Send to Claude</button></div>
+      <div id="queuedMsgs"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section aria-labelledby="h-inbox">
+      <h2 id="h-inbox">Inbox <span class="count" id="inboxCount">{{INBOX_COUNT}}</span><span class="hint">inbox/</span></h2>
+      <label class="drop live-only" id="drop" for="fileInput">
+        <strong id="dropLabel">Drop files here</strong><br>or click to choose. Claude saves them into <code>inbox/</code>; you confirm once in the chat.
+        <input type="file" id="fileInput" multiple>
+      </label>
+      <ul class="files" id="inbox">{{INBOX}}</ul>
+    </section>
+    <section aria-labelledby="h-out">
+      <h2 id="h-out">Outputs <span class="count">{{OUTPUT_COUNT}}</span><span class="hint">outputs/</span></h2>
+      <ul class="files" id="outputs">{{OUTPUTS}}</ul>
+    </section>
+    <section aria-labelledby="h-mem">
+      <h2 id="h-mem">Memory</h2>
+      <div class="mem">{{MEMORY}}</div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section aria-labelledby="h-act">
+      <h2 id="h-act">Activity <span class="hint">as of this update</span></h2>
+      <ul class="feed">{{ACTIVITY}}</ul>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="viewer" aria-labelledby="viewerTitle">
+  <div class="viewer-head"><h2 id="viewerTitle">File</h2><button class="btn ghost" type="button" id="viewerClose">Close</button></div>
+  <div id="viewerBody"></div>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+
+<script type="application/json" id="board-state">{{STATE_JSON}}</script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const S = JSON.parse($("board-state").textContent);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 2600); };
+  const ago = (ms) => { const s = Math.max(0, (Date.now() - ms) / 1000); return s < 60 ? "just now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
+  const hhmm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  const clean = (s) => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F­​-‏‪-‮⁠-⁤﻿]/g, "");
+
+  // Local times (the rendered page carries UTC).
+  const localize = () => {
+    document.querySelectorAll("time[data-ms]").forEach((el) => { el.textContent = ago(Number(el.dataset.ms)); });
+    document.querySelectorAll(".feed time[data-iso]").forEach((el) => { el.textContent = hhmm(el.dataset.iso); });
+    $("gen").textContent = "Updated " + ago(Date.parse(S.generated));
+  };
+  localize();
+  setInterval(localize, 30000);
+
+  // ----- file viewer: text, Markdown, CSV and images embedded in the page -----
+  const files = {};
+  for (const f of [...S.inbox, ...S.outputs]) files[f.rel] = f;
+  const csvRows = (text) => {
+    const rows = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length && rows.length < 300; i++) {
+      const c = text[i];
+      if (q) { if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+      else if (c === '"') q = true;
+      else if (c === "," || c === "\t") { row.push(cell); cell = ""; }
+      else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else if (c !== "\r") cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  };
+  function openViewer(rel) {
+    const f = files[rel]; if (!f || !f.view) return;
+    const v = f.view; let html;
+    if (v.kind === "image") html = `<img src="${v.src}" alt="${esc(f.name)}">`;
+    else if (v.kind === "csv") {
+      const rows = csvRows(v.text);
+      html = `<div class="tablewrap"><table>${rows.map((r, i) => `<tr>${r.map((c) => i ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`).join("")}</tr>`).join("")}</table></div>`;
+    } else if (v.kind === "md" && window.marked) {
+      window.marked.use({ renderer: { html: (t) => esc(typeof t === "object" ? t.text : t) } });
+      html = `<div class="prose">${window.marked.parse(v.text)}</div>`;
+    } else html = `<pre>${esc(v.text)}</pre>`;
+    $("viewerTitle").textContent = f.rel;
+    $("viewerBody").innerHTML = html;
+    const d = $("viewer");
+    if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", "");
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".open-file"); if (b) openViewer(b.closest("li").dataset.rel);
+  });
+  $("viewerClose").addEventListener("click", () => { const d = $("viewer"); if (d.close) d.close(); else d.removeAttribute("open"); });
+
+  // Everything below needs the Artifact runtime. Without it the page stays a complete read-only snapshot.
+  if (!window.claude || typeof window.claude.use !== "function") return;
+
+  // Files dropped on the board keep a copy in the Artifact: link straight to it.
+  document.querySelectorAll("li[data-asset]").forEach((li) => {
+    const n = li.querySelector(".n"); const name = n.textContent;
+    n.innerHTML = `<a href="/_blob/${encodeURIComponent(li.dataset.asset)}" target="_blank" rel="noopener">${esc(name)}</a>`;
+  });
+
+  let db = null, assets = null, room = null, canSend = "off";
+  const pending = new Map();          // inbound doc id -> data, for changes Claude hasn't applied yet
+  const MAX_ASSET = 20 * 1024 * 1024; // assets cap per upload
+
+  Promise.all(["db", "assets", "room"].map((n) => window.claude.use(n).catch(() => null))).then(([d, a, r]) => {
+    db = d; assets = a; room = r;
+    if (!db) return;                 // signed out, read-only viewer, or not served: stay a snapshot
+    document.body.classList.add("live");
+    document.querySelectorAll(".task input[type=checkbox]").forEach((c) => { c.disabled = false; });
+    if (!assets) $("drop").remove();
+    // A change is pending until Claude writes applied/<same id> (write-once records: no versions to juggle).
+    let inbound = [], applied = new Set();
+    const recompute = () => {
+      pending.clear();
+      inbound.filter((d) => !applied.has(d.id) && d.data()).sort((a, b) => String(a.data().at).localeCompare(String(b.data().at)))
+        .forEach((d) => pending.set(d.id, d.data()));
+      overlay();
+    };
+    const fail = () => toast("Can't read this board's queue right now.");
+    db.collection("inbound").onSnapshot((snap) => { inbound = snap.docs; recompute(); }, fail);
+    db.collection("applied").onSnapshot((snap) => { applied = new Set(snap.docs.map((d) => d.id)); recompute(); }, fail);
+    checkSend();
+  });
+
+  const checkSend = () => {
+    if (!room || typeof room.canSendToClaudeSession !== "function") { canSend = "off"; return Promise.resolve(); }
+    return room.canSendToClaudeSession().then((v) => { canSend = v; overlay(); }).catch(() => { canSend = "off"; });
+  };
+  const sendable = () => canSend === "available" || canSend === "available_if_summoned";
+
+  // ----- queue: every change waits in the artifact's `inbound` collection until Claude applies it -----
+  function queue(item) {
+    return db.collection("inbound").add({ ...item, at: new Date().toISOString() })
+      .catch((e) => { toast("Couldn't save that change: " + (e && e.message || "try again")); throw e; });
+  }
+
+  function summary() {
+    const out = [];
+    for (const p of pending.values()) {
+      if (p.kind === "task") out.push(`task ${p.action}: ${p.text || p.key}`);
+      else if (p.kind === "file") out.push(`file: ${p.name}`);
+      else if (p.kind === "message") out.push(`message: ${p.text}`);
+    }
+    return out.slice(0, 40).map((s) => clean(s).slice(0, 300));
+  }
+
+  // Must run synchronously inside the click: the platform proves the gesture from this call.
+  function sendToClaude(data, okText) {
+    if (!room || !sendable()) { toast("Claude isn't reachable from this view. Say \"sync the board\" in the chat."); checkSend(); return false; }
+    try {
+      room.sendToClaudeSession(data, { deliver: "send" })
+        .then((r) => toast(r && r.to === "pane" ? okText + " Confirm it in the chat." : okText))
+        .catch((e) => { toast(e && e.code === "rate_limited" ? "Sent a moment ago. Try again shortly." : "Couldn't send. Say \"sync the board\" in the chat."); checkSend(); });
+      return true;
+    } catch { return false; }
+  }
+
+  // ----- overlay queued changes on the rendered snapshot -----
+  function overlay() {
+    document.querySelectorAll(".queued-add, .chip-wait, .queued-file").forEach((el) => el.remove());
+    document.querySelectorAll(".task.queued").forEach((el) => {
+      el.classList.remove("queued", "removing");
+      const cb = el.querySelector("input"); cb.checked = el.classList.contains("done");
+    });
+    $("queuedMsgs").innerHTML = "";
+    const wait = '<span class="chip-wait">waiting for Claude</span>';
+    let activeList = document.querySelector('.tasklist[data-section="Active"]');
+    for (const [id, p] of pending) {
+      if (p.kind === "task" && p.action === "add") {
+        if (!activeList) {
+          const empty = document.querySelector("#tasks .empty"); if (empty) empty.remove();
+          $("tasks").insertAdjacentHTML("afterbegin", '<h3 class="sub">Active</h3><ul class="tasklist" data-section="Active"></ul>');
+          activeList = document.querySelector('.tasklist[data-section="Active"]');
+        }
+        activeList.insertAdjacentHTML("beforeend", `<li class="task queued queued-add"><input type="checkbox" disabled aria-label="Waiting for Claude"><div class="t"><label>${esc(p.text)}</label>${wait}</div></li>`);
+      } else if (p.kind === "task") {
+        const li = document.querySelector(`.task[data-key="${CSS.escape(p.key || "")}"]`);
+        if (!li) continue;
+        li.classList.add("queued");
+        if (p.action === "delete") li.classList.add("removing");
+        li.querySelector("input").checked = p.action === "done" ? true : p.action === "reopen" ? false : li.classList.contains("done");
+        li.querySelector(".t label").insertAdjacentHTML("afterend", wait);
+      } else if (p.kind === "file") {
+        const empty = document.querySelector("#inbox .empty"); if (empty) empty.remove();
+        const nm = p.assetId && !p.encoding ? `<a href="/_blob/${encodeURIComponent(p.assetId)}" target="_blank" rel="noopener">${esc(p.name)}</a>` : esc(p.name);
+        $("inbox").insertAdjacentHTML("afterbegin", `<li class="queued queued-file"><span class="n">${nm}</span>${wait}</li>`);
+      } else if (p.kind === "message") {
+        $("queuedMsgs").insertAdjacentHTML("beforeend", `<div class="queuedmsg">Waiting for Claude: ${esc(p.text)}</div>`);
+      }
+    }
+    const n = pending.size;
+    $("handoff").hidden = n === 0;
+    $("pendingCount").textContent = n;
+    $("handoffText").lastChild.textContent = n === 1 ? " change on this board hasn't reached your workspace yet." : " changes on this board haven't reached your workspace yet.";
+    $("sendChanges").disabled = !sendable();
+    $("sendChanges").title = sendable() ? "" : "Claude isn't reachable from this view. Say \"sync the board\" in the chat.";
+  }
+
+  // ----- task controls -----
+  $("tasks").addEventListener("change", (e) => {
+    const cb = e.target; const li = cb.closest(".task");
+    if (!db || !li || li.classList.contains("queued-add")) return;
+    queue({ kind: "task", action: cb.checked ? "done" : "reopen", key: li.dataset.key, text: li.dataset.text });
+  });
+  $("tasks").addEventListener("click", (e) => {
+    const x = e.target.closest(".x"); if (!x || !db) return;
+    const li = x.closest(".task");
+    if (!x.classList.contains("confirm")) {
+      x.classList.add("confirm"); x.textContent = "Delete?";
+      setTimeout(() => { x.classList.remove("confirm"); x.textContent = "×"; }, 2500);
+      return;
+    }
+    queue({ kind: "task", action: "delete", key: li.dataset.key, text: li.dataset.text });
+  });
+  $("addForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const t = $("addText").value.replace(/\s+/g, " ").trim(); if (!t || !db) return;
+    $("addText").value = "";
+    queue({ kind: "task", action: "add", text: clean(t).slice(0, 500) });
+  });
+
+  // ----- hand-off -----
+  $("sendChanges").addEventListener("click", () => {
+    const n = pending.size; if (!n) return;
+    sendToClaude({ label: `Cowork board: ${n} change${n === 1 ? "" : "s"} to apply`, kind: "cowork-board", action: "sync", pending_changes: n, changes: summary(), how: "Run /board sync to apply them to the workspace." }, "Sent to Claude.");
+  });
+  $("sendMsg").addEventListener("click", () => {
+    const t = clean($("msg").value).trim(); if (!t || !db) return;
+    if (sendable()) {
+      const ok = sendToClaude({ label: "Message from the Cowork board", kind: "cowork-board", action: "message", text: t.slice(0, 3000), pending_changes: pending.size, changes: summary().slice(0, 20), how: pending.size ? "Also run /board sync to apply the waiting changes." : "" }, "Sent to Claude.");
+      if (ok) $("msg").value = "";
+    } else {
+      $("msg").value = "";
+      queue({ kind: "message", text: t.slice(0, 3000) }).then(() => toast("Saved. Claude reads it at the next sync."));
+    }
+  });
+  // Files with no preview in the page and no copy on the board: Open asks Claude to send them into the chat.
+  document.querySelectorAll("#outputs li[data-rel], #inbox li[data-rel]").forEach((li) => {
+    if (!li.dataset.view && !li.dataset.asset) li.insertAdjacentHTML("beforeend", '<button class="btn ghost live-only ask-file" type="button">Open</button>');
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".ask-file"); if (!b) return;
+    const rel = b.closest("li").dataset.rel;
+    sendToClaude({ label: `Open ${rel}`, kind: "cowork-board", action: "send_output", path: rel, how: "Send this file to the person with SendUserFile (display: render when viewable)." }, "Asked Claude for the file.");
+  });
+
+  // ----- file drop: upload to the artifact, queue for inbox/ -----
+  const toBase64 = (file) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+  // Dropping or choosing files calls Claude at once (same gesture), so the session writes them into inbox/
+  // without a separate Send. The upload runs meanwhile; sync re-reads the queue if a file isn't in it yet.
+  function announce(files) {
+    if (!files.length || !sendable()) return false;
+    const names = files.map((f) => clean(f.name).slice(0, 200)).slice(0, 40);
+    return sendToClaude({ label: `Save ${names.length === 1 ? names[0] : names.length + " files"} into inbox/`, kind: "cowork-board", action: "sync", files: names, pending_changes: pending.size + names.length, changes: summary(), how: "Files are uploading from the board now. Run /board sync. If a listed file isn't in the queue yet, read the queue again." }, "Saving into inbox/.");
+  }
+  async function upload(files, announced) {
+    if (!files || !files.length || !assets) return;
+    for (const f of files) {
+      $("dropLabel").textContent = `Uploading ${f.name}…`;
+      try {
+        let res, encoding = "";
+        if (f.size > MAX_ASSET) throw new Error("over the 20 MB limit for a dropped file");
+        try { res = await assets.upload(f); }
+        catch (e) {
+          if (!e || e.code !== "unsupported_type") throw e;
+          // Office files and other types the asset store won't hold travel as base64 text; sync decodes them.
+          if (f.size > MAX_ASSET * 0.74) throw new Error("this file type is limited to 14 MB");
+          res = await assets.upload(new Blob([await toBase64(f)], { type: "text/plain" }), { type: "text/plain" });
+          encoding = "base64";
+        }
+        await queue({ kind: "file", name: clean(f.name).slice(0, 200), size: f.size, type: f.type || "", assetId: res.id, encoding });
+        toast(announced ? `Uploaded ${f.name}. Claude is saving it into inbox/.` : `Uploaded ${f.name}. Press Send to Claude to save it into inbox/.`);
+      } catch (e) {
+        toast(`Couldn't add ${f.name}: ${(e && (e.message || e.code)) || "upload failed"}`);
+      }
+    }
+    $("dropLabel").textContent = "Drop files here";
+  }
+  let depth = 0;
+  document.addEventListener("dragenter", (e) => { if (!assets) return; e.preventDefault(); if (++depth === 1) document.body.classList.add("dragging"); });
+  document.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; document.body.classList.remove("dragging"); } });
+  document.addEventListener("dragover", (e) => { if (assets) e.preventDefault(); });
+  const take = (list) => { const files = Array.from(list || []); if (files.length) upload(files, announce(files)); };
+  document.addEventListener("drop", (e) => { if (!assets) return; e.preventDefault(); depth = 0; document.body.classList.remove("dragging"); take(e.dataTransfer.files); });
+  $("fileInput").addEventListener("change", (e) => { take(e.target.files); e.target.value = ""; });
+})();
+</script>

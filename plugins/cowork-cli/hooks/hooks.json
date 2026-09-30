@@ -52,7 +52,7 @@
           },
           {
             "type": "prompt",
-            "prompt": "If this turn produced a file the person will keep (a deliverable), confirm it was written under outputs/ and its path was stated in the reply. If a task list was in use, confirm the last item (checking the work) was actually done. If either is missing, continue and fix it; otherwise stop.",
+            "prompt": "Only two things can require more work. (1) This turn created or changed a file the person will keep (a deliverable) and it is not under outputs/ or its path is not stated in the reply. (2) A todo list was used this turn and its last item (checking the work) was not done. If neither applies, including when the turn produced no deliverable and used no todo list (a question, an explanation, a chat reply), the answer is: stop. Never ask for work only because no deliverable exists.",
             "timeout": 30
           }
         ]

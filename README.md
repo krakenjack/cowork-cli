@@ -2,6 +2,8 @@
 
 **The Cowork way of working, in a terminal Claude Code session you can pick up from your phone.**
 
+> **New here?** Step-by-step setup guides, no technical background needed: **[Windows](docs/getting-started-windows.md)** · **[Mac](docs/getting-started-macos.md)**
+
 `cowork-cli` is a Claude Code plugin (shipped as a one-plugin marketplace) for knowledge work: research, drafting, analysis, planning and file deliverables. It makes a plain folder behave like a Cowork workspace. The folder gets standing instructions, persistent memory, a shared task list, an `outputs/` folder for deliverables, connectors, scheduled runs and browser access. The launcher starts the session with **Remote Control** on, so the same live session appears in the Claude mobile app and on claude.ai/code. Everything runs on your own machine.
 
 ```
@@ -17,8 +19,8 @@ claude --remote-control "Ops"  ──►  D:\ops\                (your folder, y
      └── deliverable-checker agent   ├── automation/        prompts for scheduled runs (/automate)
                                      ├── .cowork/           board state (activity feed, queued messages)
         ┌──────────────────┐         └── .mcp.json          connectors (/connect)
-        │  Cowork board    │◄── localhost page opened in the Claude app's browser pane
-        │  tasks · inbox   │    (or Chrome / your default browser)
+        │  Cowork board    │◄── claude.ai Artifact beside the chat (web, desktop, phone),
+        │  tasks · inbox   │    rendered from the folder; no server
         │  drop zone · log │
         └──────────────────┘
 ```
@@ -62,55 +64,42 @@ Cowork is great for handing off work and getting a finished file back. Running t
 
 ## Quickstart
 
-### 1. Get it
+Prefer a click-by-click walkthrough? See the guides for **[Windows](docs/getting-started-windows.md)** and **[Mac](docs/getting-started-macos.md)**.
 
-**Install from the marketplace.** Updates arrive through `/plugin`:
+### Once per computer: install
 
-```text
-/plugin marketplace add <owner>/cowork-cli
-/plugin install cowork-cli@cowork-cli
-```
+You need [Claude Code](https://code.claude.com/docs/en/setup) signed in with a Claude Pro, Max, Team or Enterprise account (open a terminal, type `claude`, follow the sign-in), and [Node.js](https://nodejs.org) for the board. Then paste one line into a terminal:
 
-**Clone the repo.** You also get the launcher and scheduler scripts at a path you know:
-
-```bash
-git clone https://github.com/<owner>/cowork-cli
-```
-
-You can do both. Install for updates, and clone for the scripts.
-
-### 2. Launch a workspace
-
-Windows (PowerShell):
-
+**Windows** (PowerShell):
 ```powershell
-C:\src\cowork-cli\plugins\cowork-cli\scripts\cowork.ps1 -Workspace D:\ops -Name "Ops" -Chrome
+irm https://raw.githubusercontent.com/krakenjack/cowork-cli/main/install.ps1 | iex
 ```
 
-macOS / Linux / WSL:
+**macOS / Linux**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/krakenjack/cowork-cli/main/install.sh | bash
+```
+
+This installs the plugin and adds a `cowork` command. On Windows it also adds **Open Cowork here** to the right-click menu of folders (Windows 11: under *Show more options*).
+
+### Every time: start working
+
+1. **Make a folder** for the work in File Explorer or Finder.
+2. **Start Cowork in it.** Windows: right-click the folder → *Open Cowork here*. macOS: right-click the folder → *Services* → *New Terminal at Folder*, then type `cowork`. Linux: open a terminal in the folder and type `cowork`.
+3. **Pick it up** in the Claude app on your phone or at [claude.ai/code](https://claude.ai/code): *Code* → the session named after your folder.
+
+The first time in a folder, Claude asks what to call you and what the folder is for, then opens the board beside the chat. After that, every start opens with a short brief of where things stand. Keep the terminal window open and the computer awake while you work.
+
+To get the latest version: `cowork update`.
+
+### For developers
+
+Clone the repo and run the launcher from it; it loads the plugin from the clone when the plugin isn't installed (or always, with `--dev`):
 
 ```bash
-~/src/cowork-cli/plugins/cowork-cli/scripts/cowork.sh ~/ops --name "Ops" --chrome
+git clone https://github.com/krakenjack/cowork-cli ~/src/cowork-cli
+~/src/cowork-cli/plugins/cowork-cli/scripts/cowork.sh ~/ops --dev
 ```
-
-If you also installed through the marketplace, add `-Installed` / `--installed` so the plugin isn't loaded twice.
-
-On the first run the launcher creates the workspace files (see the diagram above). It never overwrites files that already exist.
-
-### 3. Tell it who you are
-
-Open `CLAUDE.md` in the folder and fill in the `~~` placeholders: your name, role, time zone, what the folder is for, and what Claude must ask before doing. This is read at every session.
-
-### 4. Work
-
-```text
-> /cowork
-> Summarize the three vendor quotes in inbox/ into a comparison table
-> /tasks add follow up with the vendor on delivery dates — due Friday
-> /remember Alex Rivera runs procurement; they want totals with tax split out
-```
-
-Pick the session up on your phone: open the Claude app, go to **Code**, and choose the session named "Ops".
 
 ---
 
@@ -118,11 +107,11 @@ Pick the session up on your phone: open the Claude app, go to **Code**, and choo
 
 | Cowork feature | In cowork-cli | How |
 |---|---|---|
-| Choose a folder | The workspace folder | Launcher `-Workspace`; extra folders with `-AddDir` |
+| Choose a folder | The workspace folder | Run `cowork` in it (Windows: right-click → Open Cowork here); extra folders with `-AddDir` |
 | How Claude approaches tasks | Operating model | Injected by the `SessionStart` hook |
 | Memory | `memory/` (shared) + Claude Code auto memory (per machine) | `/remember`, `/memory` |
 | Task list widget | `TASKS.md` + in-session todo list | `/tasks` |
-| Side-panel view of the work | The board: live tasks, inbox drop zone, outputs, activity feed | `/board` |
+| Side-panel view of the work | The board: an Artifact beside the chat with tasks, inbox drop zone, outputs, activity | `/board`, `/board sync` |
 | Artifacts and files | `outputs/YYYY-MM-DD-slug.ext` | `/deliver` |
 | docx / xlsx / pptx / pdf | Anthropic document skills | `/plugin marketplace add anthropics/skills` |
 | Connectors | MCP servers in the workspace `.mcp.json` | `/connect`, `/mcp` |
@@ -248,31 +237,43 @@ A subagent that hasn't seen the work being produced. It opens the finished file,
 
 ## The board
 
-`/board` runs a small local web server (Node, no dependencies) from the workspace and opens the page in the first browser available:
+`/board` renders the workspace as one HTML page and publishes it as a **claude.ai Artifact**. The Artifact opens beside the conversation in the Claude web, desktop and mobile apps, which is where a Remote Control session already is, so the board sits next to the chat wherever you pick the session up. No server runs.
 
-1. **The Claude app's built-in browser pane**, when Claude Code is running inside the Claude desktop app. The board appears in the side panel next to the conversation. If the pane is hidden, `Ctrl+Shift+B` (`Cmd+Shift+B` on Mac) brings it back.
-2. **Claude in Chrome**, when the session was started with `--chrome`.
-3. **Your default browser** otherwise.
+```
+TASKS.md · inbox/ · outputs/ · memory/ · .cowork/activity.jsonl
+        │  scripts/board/render.mjs  (every turn, from the Stop hook)
+        ▼
+.cowork/board.artifact.html ──Artifact publish──►  claude.ai artifact beside the chat
+                                                     │ tick / add / delete tasks, drop files, message
+                                                     ▼
+                                   artifact database: inbound/<id>   (+ uploaded files)
+                                                     │ "Send to Claude" → a message into the session
+                                                     ▼
+                               /board sync → scripts/board/sync.mjs → TASKS.md, inbox/  → republish
+```
 
-| Panel | What it shows | What you can do |
+| Panel | What it shows | What you can do on the published board |
 |---|---|---|
-| Tasks | `TASKS.md` grouped by Active / Waiting / Done, due dates, overdue in red | Add, check off, reopen, delete: it edits `TASKS.md` directly |
-| Inbox | `inbox/` | **Drag and drop files** anywhere on the page. They land in `inbox/` and Claude is told about them at its next turn |
-| Outputs | `outputs/`, newest first | Open or download any deliverable |
-| Activity | Live feed of Claude's tool calls, your prompts, file drops, turn boundaries | Watch what it's doing |
-| Message Claude | A text box | Queue a note; it's injected into Claude's next turn as an instruction |
-| Header | Working / idle indicator and workspace path | |
+| Tasks | `TASKS.md` by Active / Waiting / Done, due dates, overdue in red | Tick, reopen, delete, add |
+| Inbox | `inbox/` | Drop or choose files (20 MB; Office files 14 MB) |
+| Outputs | `outputs/`, newest first | **Open** asks Claude to send the file into the chat |
+| Message Claude | | Send an instruction straight into the conversation |
+| Activity | Claude's tool calls, your prompts, file drops, as of the last update | |
 
-Everything is live: the server watches the files and pushes changes over server-sent events, and the plugin's hooks append to the activity feed and status after every tool call and turn.
+How it stays in step:
+
+- **Workspace → board.** The `Stop` hook re-renders the page after every turn. If tasks, `inbox/`, `outputs/` or memory changed, it asks Claude once to republish, and every open view reloads to the new version.
+- **Board → workspace.** Each thing you do on the page is saved in the Artifact's own database and shown as *waiting for Claude*. **Send to Claude** hands the waiting changes to the session (you confirm in the chat). Claude runs `/board sync`: task edits land in `TASKS.md`, dropped files are copied into `inbox/`, messages are acted on, and the board is republished.
+- **Elsewhere.** `.cowork/board.html` is the same page as a complete file. Opened outside claude.ai, or sent into the chat's side panel, it is a read-only snapshot.
 
 Details:
 
-- **Day / night**: the switch in the header offers Auto (follows the OS), Day and Night; the choice is remembered per browser. The look follows Anthropic's: ivory ground, warm charcoal at night, serif headings, the Claude orange reserved for actions and the working indicator.
-- State lives in `.cowork/` inside the workspace (git-ignored). Delete the folder to reset.
-- Default bind is `127.0.0.1:4820`. `/board lan` binds all interfaces with a random token in the URL, for a second screen on the same network. The phone's Remote Control view shows the conversation, not the board.
-- `-Board` / `--board` on the launcher starts it before Claude and turns on autostart for the folder.
-- Uploads are capped at 200 MB per file; names are sanitized and never overwrite an existing inbox file.
-- Needs Node 18+ on `PATH`. Without it the rest of the plugin works and `/board` says so.
+- State lives in `.cowork/` (git-ignored): `web.json` holds the Artifact link. Delete the folder to reset; the next `/board` publishes a new Artifact.
+- The Artifact is private to you unless you share it. It declares `db` (the change queue), `assets` (dropped files), `room` (Send to Claude) and `user`.
+- Office files and other types the Artifact file store doesn't accept are carried as base64 text and decoded by `sync.mjs`.
+- Needs Node 18+ on `PATH`.
+
+**Local server (optional).** The earlier localhost board is still there for the Claude desktop app's browser pane: `node scripts/board/board.mjs start` (default `127.0.0.1:4820`, `lan` for a tokened LAN URL, `.cowork/board-autostart` to start it each session). It can't be reached from claude.ai in a browser on another machine.
 
 ---
 
@@ -373,22 +374,24 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 
 ## Launcher reference
 
+`cowork` needs no options. These are for people who want them:
+
 | PowerShell | bash | Effect |
 |---|---|---|
-| `-Workspace <dir>` | first positional arg | Folder to work in (default: current) |
-| `-Name "<title>"` | `--name "<title>"` | Session name shown on the phone |
+| first argument | first argument | Folder to work in (default: the current folder) |
+| `-Name "<title>"` | `--name "<title>"` | Session name on the phone (default: the folder's name) |
+| `-Quiet` | `--quiet` | Don't start with the brief / first-run welcome |
 | `-Chrome` | `--chrome` | Enable Claude in Chrome |
-| `-Board` | `--board` | Start the board, open it in the default browser, enable autostart for this folder |
+| `-LocalBoard` | `--local-board` | Also start the optional localhost board server |
 | `-NoRemote` | `--no-remote` | Plain local session |
-| `-Installed` | `--installed` | Plugin installed from the marketplace; skip `--plugin-dir` |
+| `-Dev` | `--dev` | Load the plugin from this copy even when it's installed |
 | `-AddDir a,b` | `--add-dir a b` | Extra folders Claude may access |
 | `-Model <id>` | `--model <id>` | Model override |
 | `-Continue` | `--continue` | Resume the most recent session in this folder |
 | `-PermissionMode acceptEdits` | `--permission-mode acceptEdits` | Starting permission mode |
+| `cowork update` | `cowork update` | Update the plugin |
 
-`cowork.cmd` wraps `cowork.ps1` so it works from `cmd.exe`, a shortcut or a double-click.
-
-**Windows shortcut:** create a shortcut with the target `C:\src\cowork-cli\plugins\cowork-cli\scripts\cowork.cmd -Workspace D:\ops -Name Ops` and set its "Start in" to `D:\ops`.
+The launcher uses the installed plugin when there is one (so skills aren't loaded twice), lays out the workspace files on first use without overwriting anything, and starts Claude with `/cowork welcome` the first time and `/cowork` after that.
 
 ---
 
@@ -411,14 +414,15 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 | Symptom | Fix |
 |---|---|
 | Session doesn't show on the phone | Check that you're signed in with claude.ai, not an API key (`/login`). On Team/Enterprise, ask an Owner to enable Remote Control. Make sure the terminal session is still running and the machine is awake. |
-| `/cowork`, `/tasks` etc. not found | Check that the plugin is loaded (`/plugin` → Installed). With the launcher, don't use `-Installed` unless you installed it from the marketplace. |
+| `/cowork`, `/tasks` etc. not found | Check that the plugin is loaded (`/plugin` → Installed). Run the installer again, or start with `cowork --dev` from a clone. |
 | No workspace snapshot at session start (Windows) | Install Git for Windows so `bash` is on PATH, then restart the terminal. |
-| Skills listed twice | You passed `--plugin-dir` and also have the plugin installed. Add `-Installed`. |
+| Skills listed twice | You started `claude --plugin-dir …` yourself while the plugin is also installed. Start with `cowork` instead; it detects the installed plugin. |
 | `.ps1 cannot be loaded because running scripts is disabled` | Use `cowork.cmd`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 | Scheduled job ran but nothing happened | Check `outputs/automation/<name>/*.log`. The usual causes are an expired login or a missing tool permission (`-AllowedTools`). |
 | `/deliver` produced `.md` instead of `.docx` | The document skills aren't installed: `/plugin marketplace add anthropics/skills` |
-| Board shows "server unreachable" | The server stopped (laptop slept, port taken). Run `/board` again; check `.cowork/board.log`. |
-| Board opened in Chrome instead of the side panel | The side panel only exists when Claude Code runs inside the Claude desktop app. From a plain terminal the board opens in a browser tab. |
+| Board changes stay "waiting for Claude" | Press **Send to Claude** on the board, or say "sync the board" in the chat. |
+| Board shows old content | Say "/board" to republish. Check `.cowork/web.json` has the Artifact link. |
+| Send to Claude is greyed out | The board isn't open beside a conversation that can take it (for example, opened from the gallery on its own). Say "sync the board" in the chat instead. |
 | Connector added but its tools are missing | Run `/mcp` and finish the OAuth sign-in, then restart the session |
 
 ---
@@ -441,6 +445,8 @@ Anyone who clones it and runs the launcher gets the same instructions, memory, t
 
 ```
 cowork-cli/
+├── docs/getting-started-windows.md · getting-started-macos.md   plain-language setup guides
+├── install.sh · install.ps1               one-line installers: plugin + `cowork` command (+ Explorer menu)
 ├── .claude-plugin/marketplace.json        marketplace manifest (plugin root: ./plugins)
 └── plugins/cowork-cli/
     ├── .claude-plugin/plugin.json         plugin manifest
@@ -459,7 +465,9 @@ cowork-cli/
     ├── agents/deliverable-checker.md      fresh-eyes verification
     ├── scripts/
     │   ├── cowork.ps1 · cowork.cmd · cowork.sh          launchers (Remote Control on)
-    │   ├── board/server.mjs · board.mjs · index.html    the board (local web dashboard)
+    │   ├── board/render.mjs · sync.mjs · lib.mjs        the web board: render the page, apply board changes
+    │   ├── board/web/board.template.html                the board page (published as an Artifact)
+    │   ├── board/server.mjs · board.mjs · index.html    optional local board server
     │   └── schedule-windows.ps1 · schedule-cron.sh      OS-level scheduled runs
     ├── templates/                         seeded into new workspaces
     ├── CONNECTORS.md
